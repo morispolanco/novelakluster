@@ -37,7 +37,18 @@ def generar_capitulo(trama, tabla_contenidos, capitulo):
     Tabla de contenidos:
     {tabla_contenidos}
 
-    El capítulo debe tener alrededor de 2000 palabras. Usa rayas (—) para los diálogos. Por ejemplo:
+    Instrucciones adicionales para el capítulo:
+    1. **Desarrollo de personajes**: Profundiza en los pensamientos, emociones y trasfondos de los personajes principales. Explora sus motivaciones y conflictos internos.
+    2. **Descripciones detalladas**: Incluye descripciones elaboradas de los escenarios, ambientes y situaciones. Ayuda al lector a visualizar el mundo de la historia.
+    3. **Subtramas**: Introduce una subtrama que complemente la historia principal. Puede ser un conflicto secundario, una relación entre personajes o un misterio que se desarrolla en paralelo.
+    4. **Diálogos extensos**: Usa diálogos bien construidos para revelar información importante sobre los personajes o la trama. Asegúrate de que los diálogos sean naturales y contribuyan al desarrollo de la historia.
+    5. **Reflexiones internas**: Permite que los personajes reflexionen sobre lo que está sucediendo. Esto añade profundidad psicológica y ayuda al lector a conectarse con los personajes.
+    6. **Eventos detallados**: Si hay acciones o eventos clave, descríbelos con detalle. Por ejemplo, en lugar de resumir una batalla, describe cada movimiento, estrategia y emoción.
+    7. **Flashbacks o recuerdos**: Usa flashbacks para explorar el pasado de los personajes o eventos importantes que influyen en la trama actual.
+    8. **Expansión del mundo**: Si la novela es de fantasía o ciencia ficción, dedica tiempo a desarrollar el mundo, sus reglas, culturas y sistemas.
+    9. **Ritmo controlado**: Asegúrate de que el ritmo de la historia no sea demasiado rápido. Tómate tu tiempo para desarrollar cada escena de manera natural.
+
+    El capítulo debe tener alrededor de 3000 a 4000 palabras. Usa rayas (—) para los diálogos. Por ejemplo:
     — Hola, ¿cómo estás? —preguntó Juan.
     — Bien, gracias —respondió María.
     """
@@ -46,7 +57,6 @@ def generar_capitulo(trama, tabla_contenidos, capitulo):
         messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content
-
 # Función para generar un archivo .docx con la novela completa
 def generar_docx(novela):
     doc = Document()

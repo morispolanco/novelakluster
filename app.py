@@ -1,90 +1,112 @@
 import streamlit as st
 from openai import OpenAI
 import time
-from docx import Document
-from io import BytesIO
+import docx
+import os
 
-# Configuración de Streamlit
-st.set_page_config(page_title="Generador de Novelas", page_icon="📚")
-
-# Esconder API Key en los secrets de Streamlit
-API_KEY = st.secrets["KLUSTERAI_API_KEY"]
-
-# Cliente OpenAI compatible
+# Configuración de la API
 client = OpenAI(
     base_url="https://api.kluster.ai/v1",
-    api_key=API_KEY
+    api_key=st.secrets["KLUSTERAI_API_KEY"]
 )
 
-# Función para generar texto con la API
-def generate_text(prompt):
+# Función para generar un capítulo
+def generar_capitulo(genero, titulo, capitulo_num, trama_principal, personajes_principales):
+    prompt = f"""
+    Escribe el capítulo {capitulo_num} de una novela titulada "{titulo}" del género {genero}.
+    La trama principal es: {trama_principal}.
+    Los personajes principales son: {personajes_principales}.
+    El capítulo debe tener alrededor de 2000 palabras y debe incluir:
+    - Desarrollo de personajes: Profundiza en los pensamientos, emociones y trasfondos de los personajes.
+    - Descripciones detalladas: Incluye descripciones elaboradas de los escenarios, ambientes y situaciones.
+    - Subplots o tramas secundarias: Introduce subtramas que complementen la historia principal.
+    - Diálogos extensos: Usa rayas para los diálogos, ejemplo: —Así es—.
+    - Reflexiones internas: Permite que los personajes reflexionen sobre lo que está sucediendo.
+    - Eventos detallados: Describe acciones o eventos clave con más detalle.
+    - Flashbacks o recuerdos: Usa flashbacks para explorar el pasado de los personajes.
+    - Expansión del mundo: Si es fantasía o ciencia ficción, desarrolla el mundo, sus reglas, culturas y sistemas.
+    - Pacing controlado: Asegúrate de que el ritmo de la historia no sea demasiado rápido.
+    """
+    
     response = client.chat.completions.create(
-        model="gpt-4o",  # Ajusta según el modelo disponible
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000,
-        temperature=0.7
+        model="gpt-4",  # O el modelo que prefieras
+        messages=[
+            {"role": "system", "content": "Eres un escritor de novelas experto."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=4000  # Ajusta según sea necesario
     )
+    
+    return response.choices[0].message.content
+
+# Función para generar la tabla de contenidos
+def generar_tabla_contenidos(titulo, trama_principal, personajes_principales):
+    prompt = f"""
+    Genera una tabla de contenidos para una novela titulada "{titulo}" del género {genero}.
+    La trama principal es: {trama_principal}.
+    Los personajes principales son: {personajes_principales}.
+    La novela debe tener 24 capítulos. Proporciona un título breve para cada capítulo.
+    """
+    
+    response = client.chat.completions.create(
+        model="gpt-4",  # O el modelo que prefieras
+        messages=[
+            {"role": "system", "content": "Eres un escritor de novelas experto."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=1000  # Ajusta según sea necesario
+    )
+    
     return response.choices[0].message.content
 
 # Función para guardar la novela en un archivo .docx
-def save_to_docx(chapters, title):
-    doc = Document()
-    doc.add_heading(title, level=1)
-    for i, chapter in enumerate(chapters, start=1):
-        doc.add_heading(f"Capítulo {i}", level=2)
-        doc.add_paragraph(chapter)
-    bio = BytesIO()
-    doc.save(bio)
-    bio.seek(0)
-    return bio
+def guardar_novela_docx(titulo, capitulos):
+    doc = docx.Document()
+    doc.add_heading(titulo, 0)
+    
+    for capitulo_num, contenido in capitulos.items():
+        doc.add_heading(f"Capítulo {capitulo_num}", level=1)
+        doc.add_paragraph(contenido)
+    
+    doc.save(f"{titulo}.docx")
 
-# Título de la aplicación
-st.title("Generador de Novelas 📚")
-st.write("Crea tu propia novela de 24 capítulos con detalles ricos y emocionantes.")
+# Interfaz de Streamlit
+st.title("Generador de Novelas")
 
-# Inputs del usuario
-genre = st.text_input("Género de la novela (ej. Fantasía, Ciencia Ficción, Romance):")
-title = st.text_input("Título de la novela:")
+# Entradas del usuario
+genero = st.selectbox("Selecciona el género de la novela:", ["Fantasía", "Ciencia Ficción", "Romance", "Misterio", "Terror"])
+titulo = st.text_input("Título de la novela:")
+personajes_principales = st.text_area("Describe los personajes principales:")
+trama_principal = st.text_area("Describe la trama principal:")
+
 if st.button("Generar Novela"):
-    if genre and title:
-        st.session_state['genre'] = genre
-        st.session_state['title'] = title
-        st.session_state['chapters'] = []
-        st.session_state['current_chapter'] = 1
-        st.success("¡Comenzando la generación de la novela!")
+    if not titulo or not personajes_principales or not trama_principal:
+        st.error("Por favor, completa todos los campos.")
     else:
-        st.error("Por favor, ingresa el género y el título.")
-
-# Generación de capítulos
-if 'chapters' in st.session_state and st.session_state['current_chapter'] <= 24:
-    with st.spinner(f"Generando Capítulo {st.session_state['current_chapter']}..."):
-        # Generar trama y tabla de contenidos si es el primer capítulo
-        if st.session_state['current_chapter'] == 1:
-            st.subheader("Trama y Tabla de Contenidos")
-            plot_prompt = f"Escribe una trama completa para una novela de {st.session_state['genre']} titulada '{st.session_state['title']}' con 24 capítulos. Incluye una tabla de contenidos con títulos de cada capítulo."
-            plot_and_toc = generate_text(plot_prompt)
-            st.session_state['plot_and_toc'] = plot_and_toc
-            st.write(plot_and_toc)
-
-        # Generar el capítulo actual
-        chapter_prompt = f"Escribe el Capítulo {st.session_state['current_chapter']} de una novela de {st.session_state['genre']} titulada '{st.session_state['title']}'. Usa los siguientes elementos: Desarrollo de personajes profundo, descripciones detalladas, subtramas, diálogos extensos con rayas (—), reflexiones internas, eventos detallados, flashbacks y expansión del mundo. Asegúrate de que tenga alrededor de 2000 palabras."
-        chapter_text = generate_text(chapter_prompt)
-        st.session_state['chapters'].append(chapter_text)
-
-        # Mostrar el capítulo generado
-        st.subheader(f"Capítulo {st.session_state['current_chapter']}")
-        st.write(chapter_text)
-
-        # Avanzar al siguiente capítulo
-        st.session_state['current_chapter'] += 1
-
-# Descargar novela completa
-if 'chapters' in st.session_state and st.session_state['current_chapter'] > 24:
-    st.success("¡Novela completa generada!")
-    docx_file = save_to_docx(st.session_state['chapters'], st.session_state['title'])
-    st.download_button(
-        label="Descargar Novela Completa (.docx)",
-        data=docx_file,
-        file_name=f"{st.session_state['title']}.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+        with st.spinner("Generando la tabla de contenidos..."):
+            tabla_contenidos = generar_tabla_contenidos(titulo, trama_principal, personajes_principales)
+        
+        st.subheader("Tabla de Contenidos")
+        st.write(tabla_contenidos)
+        
+        capitulos = {}
+        for i in range(1, 25):
+            with st.spinner(f"Generando Capítulo {i}..."):
+                capitulo = generar_capitulo(genero, titulo, i, trama_principal, personajes_principales)
+                capitulos[i] = capitulo
+                st.subheader(f"Capítulo {i}")
+                st.write(capitulo)
+        
+        # Guardar la novela en un archivo .docx
+        guardar_novela_docx(titulo, capitulos)
+        
+        # Ofrecer descarga del archivo .docx
+        with open(f"{titulo}.docx", "rb") as file:
+            btn = st.download_button(
+                label="Descargar Novela Completa",
+                data=file,
+                file_name=f"{titulo}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+        
+        st.success("¡Novela generada y lista para descargar!")

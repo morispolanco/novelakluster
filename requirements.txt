@@ -1,5 +1,5 @@
-streamlit==1.22.0
-openai==0.27.0
-python-docx==0.8.11
-openai-secret-manager==0.1.0
+streamlit
+openai
+python-docx
+openai-secret-manager
 

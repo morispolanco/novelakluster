@@ -1,57 +1,92 @@
 import streamlit as st
 import time
-from openai import OpenAI
 import json
 import docx
 from docx.shared import Inches
 import os
+import openai
 
 # Configuración de la página
 st.set_page_config(page_title="Generador de Novelas", layout="wide")
 
-# Inicialización de OpenAI con la API key desde secrets
-client = OpenAI(
-    base_url="https://api.kluster.ai/v1",
-    api_key=st.secrets["openai"]["api_key"]
-)
+# Configuración de OpenAI
+openai.api_key = st.secrets["openai_api_key"]
 
 def generar_personajes(genero):
-    prompt = f"Genera 5 personajes principales para una novela de {genero}. Para cada personaje, incluye: nombre, edad, descripción física, personalidad y rol en la historia. Formato JSON."
-
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return json.loads(response.choices[0].message.content)
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un escritor experto en crear personajes complejos y memorables."},
+                {"role": "user", "content": f"""Crea 5 personajes principales para una novela de {genero}.
+                Incluye para cada uno:
+                - Nombre
+                - Edad
+                - Descripción física
+                - Personalidad
+                - Rol en la historia
+                Devuelve la respuesta en formato JSON."""}
+            ],
+            temperature=0.8
+        )
+        return json.loads(response.choices[0].message['content'])
+    except Exception as e:
+        st.error(f"Error al generar personajes: {str(e)}")
+        return None
 
 def generar_trama(genero, titulo, personajes):
-    prompt = f"Genera una trama completa para una novela de {genero} titulada '{titulo}' con los siguientes personajes: {personajes}. Incluye el arco principal y subtramas. Formato JSON con estructura general y resumen de 24 capítulos."
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un escritor experto en crear tramas complejas y cautivadoras."},
+                {"role": "user", "content": f"""Crea una trama completa para una novela de {genero} titulada '{titulo}'.
+                Personajes: {json.dumps(personajes, ensure_ascii=False)}
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return json.loads(response.choices[0].message.content)
+                La respuesta debe ser un JSON con:
+                - título
+                - tema_principal
+                - sinopsis
+                - capitulos: (diccionario con 24 capítulos numerados)
+
+                Cada capítulo debe tener:
+                - título
+                - resumen
+                - eventos_principales
+                - desarrollo_personajes"""}
+            ],
+            temperature=0.8
+        )
+        return json.loads(response.choices[0].message['content'])
+    except Exception as e:
+        st.error(f"Error al generar trama: {str(e)}")
+        return None
 
 def escribir_capitulo(numero, titulo, trama, personajes):
-    prompt = f"""Escribe el capítulo {numero} de la novela '{titulo}'.
-    Trama del capítulo: {trama}
-    Personajes: {personajes}
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un novelista experto que escribe capítulos detallados y envolventes."},
+                {"role": "user", "content": f"""Escribe el capítulo {numero} de la novela '{titulo}'.
+                Información del capítulo: {json.dumps(trama['capitulos'][str(numero)], ensure_ascii=False)}
+                Personajes: {json.dumps(personajes, ensure_ascii=False)}
 
-    Requisitos:
-    - Aproximadamente 2000 palabras
-    - Usar raya (—) para diálogos
-    - Incluir desarrollo de personajes
-    - Descripciones detalladas
-    - Diálogos elaborados
-    - Reflexiones internas
-    - Ritmo controlado"""
-
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content
+                Requisitos:
+                - Aproximadamente 2000 palabras
+                - Usar raya (—) para diálogos
+                - Desarrollo profundo de personajes
+                - Descripciones detalladas
+                - Diálogos elaborados
+                - Reflexiones internas
+                - Ritmo narrativo controlado"""}
+            ],
+            temperature=0.8
+        )
+        return response.choices[0].message['content']
+    except Exception as e:
+        st.error(f"Error al escribir capítulo: {str(e)}")
+        return None
 
 def crear_documento_word(titulo, capitulos):
     doc = docx.Document()
@@ -84,9 +119,11 @@ if st.session_state.estado == 'inicio':
     if st.button("Comenzar") and genero and titulo:
         with st.spinner("Generando personajes y trama..."):
             st.session_state.personajes = generar_personajes(genero)
-            st.session_state.trama = generar_trama(genero, titulo, st.session_state.personajes)
-            st.session_state.estado = 'escribiendo'
-            st.rerun()
+            if st.session_state.personajes:
+                st.session_state.trama = generar_trama(genero, titulo, st.session_state.personajes)
+                if st.session_state.trama:
+                    st.session_state.estado = 'escribiendo'
+                    st.rerun()
 
 elif st.session_state.estado == 'escribiendo':
     st.write("### Personajes")
@@ -105,11 +142,12 @@ elif st.session_state.estado == 'escribiendo':
                 contenido = escribir_capitulo(
                     capitulo_actual,
                     st.session_state.trama['titulo'],
-                    st.session_state.trama['capitulos'][str(capitulo_actual)],
+                    st.session_state.trama,
                     st.session_state.personajes
                 )
-                st.session_state.capitulos[str(capitulo_actual)] = contenido
-                st.rerun()
+                if contenido:
+                    st.session_state.capitulos[str(capitulo_actual)] = contenido
+                    st.rerun()
 
     # Mostrar capítulos escritos
     for num, contenido in st.session_state.capitulos.items():

@@ -4,17 +4,17 @@ import json
 import docx
 from docx.shared import Inches
 import os
-import openai
+from openai import OpenAI
 
 # Configuración de la página
 st.set_page_config(page_title="Generador de Novelas", layout="wide")
 
 # Configuración de OpenAI
-openai.api_key = st.secrets["openai_api_key"]
+client = OpenAI(api_key=st.secrets["openai_api_key"])
 
 def generar_personajes(genero):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Eres un escritor experto en crear personajes complejos y memorables."},
@@ -29,14 +29,14 @@ def generar_personajes(genero):
             ],
             temperature=0.8
         )
-        return json.loads(response.choices[0].message['content'])
+        return json.loads(response.choices[0].message.content)
     except Exception as e:
         st.error(f"Error al generar personajes: {str(e)}")
         return None
 
 def generar_trama(genero, titulo, personajes):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Eres un escritor experto en crear tramas complejas y cautivadoras."},
@@ -57,14 +57,14 @@ def generar_trama(genero, titulo, personajes):
             ],
             temperature=0.8
         )
-        return json.loads(response.choices[0].message['content'])
+        return json.loads(response.choices[0].message.content)
     except Exception as e:
         st.error(f"Error al generar trama: {str(e)}")
         return None
 
 def escribir_capitulo(numero, titulo, trama, personajes):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Eres un novelista experto que escribe capítulos detallados y envolventes."},
@@ -83,7 +83,7 @@ def escribir_capitulo(numero, titulo, trama, personajes):
             ],
             temperature=0.8
         )
-        return response.choices[0].message['content']
+        return response.choices[0].message.content
     except Exception as e:
         st.error(f"Error al escribir capítulo: {str(e)}")
         return None

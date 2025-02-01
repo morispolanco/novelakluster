@@ -1,113 +1,93 @@
 import streamlit as st
 import json
-import time
-from openai import OpenAI
+import requests
 
 # Configuración de la página
 st.set_page_config(page_title="Generador de Novelas", layout="wide")
 
-# Configuración de Kluster.ai
-client = OpenAI(
-    base_url="https://api.kluster.ai/v1",
-    api_key="tu_kluster_api_key"  # Reemplaza con tu API key real
-)
+# Configuración de OpenRouter
+OPENROUTER_API_KEY = "tu_openrouter_api_key"  # Reemplaza con tu API key real
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+def generar_contenido(messages):
+    try:
+        response = requests.post(
+            url=OPENROUTER_API_URL,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "HTTP-Referer": "https://tusitio.com",  # Opcional
+                "X-Title": "Generador de Novelas",  # Opcional
+            },
+            json={
+                "model": "sophosympatheia/rogue-rose-103b-v0.2:free",  # Puedes cambiar el modelo
+                "messages": messages,
+                "max_tokens": 5000,
+                "temperature": 0.7,
+            }
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        st.error(f"Error al generar contenido: {str(e)}")
+        return None
 
 def generar_personajes(genero):
-    try:
-        response = client.chat.completions.create(
-            model="klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
-            max_completion_tokens=5000,
-            temperature=0.7,
-            messages=[
-                {"role": "system", "content": "Eres un escritor experto en crear personajes complejos y memorables."},
-                {"role": "user", "content": f"""Crea 5 personajes principales para una novela de {genero}.
-                Incluye para cada uno:
-                - Nombre
-                - Edad
-                - Descripción física
-                - Personalidad
-                - Rol en la historia
-                Devuelve la respuesta en formato JSON."""}
-            ],
-            metadata={
-                "@kluster.ai": {
-                    "async": False,
-                    "completion_window": "1h"
-                }
-            }
-        )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        st.error(f"Error al generar personajes: {str(e)}")
-        return None
+    messages = [
+        {"role": "system", "content": "Eres un escritor experto en crear personajes complejos y memorables."},
+        {"role": "user", "content": f"""Crea 5 personajes principales para una novela de {genero}.
+        Incluye para cada uno:
+        - Nombre
+        - Edad
+        - Descripción física
+        - Personalidad
+        - Rol en la historia
+        Devuelve la respuesta en formato JSON."""}
+    ]
+    contenido = generar_contenido(messages)
+    if contenido:
+        return json.loads(contenido)
+    return None
 
 def generar_trama(genero, titulo, personajes):
-    try:
-        response = client.chat.completions.create(
-            model="klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
-            max_completion_tokens=5000,
-            temperature=0.7,
-            messages=[
-                {"role": "system", "content": "Eres un escritor experto en crear tramas complejas y cautivadoras."},
-                {"role": "user", "content": f"""Crea una trama completa para una novela de {genero} titulada '{titulo}'.
-                Personajes: {json.dumps(personajes, ensure_ascii=False)}
+    messages = [
+        {"role": "system", "content": "Eres un escritor experto en crear tramas complejas y cautivadoras."},
+        {"role": "user", "content": f"""Crea una trama completa para una novela de {genero} titulada '{titulo}'.
+        Personajes: {json.dumps(personajes, ensure_ascii=False)}
 
-                La respuesta debe ser un JSON con:
-                - título
-                - tema_principal
-                - sinopsis
-                - capitulos: (diccionario con 10 capítulos numerados)
+        La respuesta debe ser un JSON con:
+        - título
+        - tema_principal
+        - sinopsis
+        - capitulos: (diccionario con 10 capítulos numerados)
 
-                Cada capítulo debe tener:
-                - título
-                - resumen
-                - eventos_principales
-                - desarrollo_personajes"""}
-            ],
-            metadata={
-                "@kluster.ai": {
-                    "async": False,
-                    "completion_window": "1h"
-                }
-            }
-        )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        st.error(f"Error al generar trama: {str(e)}")
-        return None
+        Cada capítulo debe tener:
+        - título
+        - resumen
+        - eventos_principales
+        - desarrollo_personajes"""}
+    ]
+    contenido = generar_contenido(messages)
+    if contenido:
+        return json.loads(contenido)
+    return None
 
 def escribir_capitulo(numero, titulo, trama, personajes):
-    try:
-        response = client.chat.completions.create(
-            model="klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
-            max_completion_tokens=5000,
-            temperature=0.7,
-            messages=[
-                {"role": "system", "content": "Eres un novelista experto que escribe capítulos detallados y envolventes."},
-                {"role": "user", "content": f"""Escribe el capítulo {numero} de la novela '{titulo}'.
-                Información del capítulo: {json.dumps(trama['capitulos'][str(numero)], ensure_ascii=False)}
-                Personajes: {json.dumps(personajes, ensure_ascii=False)}
+    messages = [
+        {"role": "system", "content": "Eres un novelista experto que escribe capítulos detallados y envolventes."},
+        {"role": "user", "content": f"""Escribe el capítulo {numero} de la novela '{titulo}'.
+        Información del capítulo: {json.dumps(trama['capitulos'][str(numero)], ensure_ascii=False)}
+        Personajes: {json.dumps(personajes, ensure_ascii=False)}
 
-                Requisitos:
-                - Aproximadamente 2000 palabras
-                - Usar raya (—) para diálogos
-                - Desarrollo profundo de personajes
-                - Descripciones detalladas
-                - Diálogos elaborados
-                - Reflexiones internas
-                - Ritmo narrativo controlado"""}
-            ],
-            metadata={
-                "@kluster.ai": {
-                    "async": False,
-                    "completion_window": "1h"
-                }
-            }
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        st.error(f"Error al escribir capítulo: {str(e)}")
-        return None
+        Requisitos:
+        - Aproximadamente 2000 palabras
+        - Usar raya (—) para diálogos
+        - Desarrollo profundo de personajes
+        - Descripciones detalladas
+        - Diálogos elaborados
+        - Reflexiones internas
+        - Ritmo narrativo controlado"""}
+    ]
+    return generar_contenido(messages)
 
 def crear_documento_texto(titulo, capitulos):
     filename = f"{titulo.lower().replace(' ', '_')}.txt"

@@ -1,221 +1,70 @@
 import streamlit as st
-import json
-import requests
+from openai import OpenAI
+from docx import Document
+import os
 
-# Configuración de la página
-st.set_page_config(page_title="Generador de Novelas", layout="wide")
+# Configura la API key de OpenAI
+api_key = st.secrets["openai_api_key"]
+client = OpenAI(api_key=api_key)
 
-# Configuración de OpenRouter
-OPENROUTER_API_KEY = "tu_openrouter_api_key"  # Reemplaza con tu API key real
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+# Función para generar la trama y los personajes
+def generar_trama_y_personajes(genero, titulo):
+    prompt = f"Genera una trama y describe los personajes principales para una novela de género {genero} titulada '{titulo}'. Incluye una tabla de contenidos con 24 capítulos."
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Eres un escritor experto en novelas."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    return response.choices[0].message.content
 
-def generar_contenido(messages):
-    try:
-        response = requests.post(
-            url=OPENROUTER_API_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "HTTP-Referer": "https://tusitio.com",  # Opcional
-                "X-Title": "Generador de Novelas",  # Opcional
-            },
-            json={
-                "model": "sophosympatheia/rogue-rose-103b-v0.2:free",  # Puedes cambiar el modelo
-                "messages": messages,
-                "max_tokens": 5000,
-                "temperature": 0.7,
-            }
-        )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
-    except Exception as e:
-        st.error(f"Error al generar contenido: {str(e)}")
-        return None
+# Función para generar un capítulo
+def generar_capitulo(trama, capitulo_numero):
+    prompt = f"Escribe el capítulo {capitulo_numero} de la novela. La trama general es: {trama}. El capítulo debe tener alrededor de 2000 palabras y debe incluir desarrollo de personajes, descripciones detalladas, subtramas, diálogos extensos, reflexiones internas, eventos detallados, flashbacks y expansión del mundo."
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Eres un escritor experto en novelas."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    return response.choices[0].message.content
 
-def generar_personajes(genero):
-    messages = [
-        {"role": "system", "content": "Eres un escritor experto en crear personajes complejos y memorables."},
-        {"role": "user", "content": f"""Crea 5 personajes principales para una novela de {genero}.
-        Incluye para cada uno:
-        - Nombre
-        - Edad
-        - Descripción física
-        - Personalidad
-        - Rol en la historia
-        Devuelve la respuesta en formato JSON."""}
-    ]
-    contenido = generar_contenido(messages)
-    if contenido:
-        return json.loads(contenido)
-    return None
+# Función para guardar la novela en un archivo .docx
+def guardar_novela(titulo, capitulos):
+    doc = Document()
+    doc.add_heading(titulo, 0)
+    for capitulo in capitulos:
+        doc.add_heading(f"Capítulo {capitulo['numero']}", level=1)
+        doc.add_paragraph(capitulo['contenido'])
+    doc.save(f"{titulo}.docx")
 
-def generar_trama(genero, titulo, personajes):
-    messages = [
-        {"role": "system", "content": "Eres un escritor experto en crear tramas complejas y cautivadoras."},
-        {"role": "user", "content": f"""Crea una trama completa para una novela de {genero} titulada '{titulo}'.
-        Personajes: {json.dumps(personajes, ensure_ascii=False)}
+# Interfaz de Streamlit
+st.title("Generador de Novelas")
 
-        La respuesta debe ser un JSON con:
-        - título
-        - tema_principal
-        - sinopsis
-        - capitulos: (diccionario con 10 capítulos numerados)
+# Entradas del usuario
+genero = st.text_input("Especifica el género de la novela:")
+titulo = st.text_input("Especifica el título de la novela:")
 
-        Cada capítulo debe tener:
-        - título
-        - resumen
-        - eventos_principales
-        - desarrollo_personajes"""}
-    ]
-    contenido = generar_contenido(messages)
-    if contenido:
-        return json.loads(contenido)
-    return None
+if st.button("Generar Novela"):
+    if genero and titulo:
+        with st.spinner("Generando trama y personajes..."):
+            trama_y_personajes = generar_trama_y_personajes(genero, titulo)
+            st.write("### Trama y Personajes")
+            st.write(trama_y_personajes)
 
-def escribir_capitulo(numero, titulo, trama, personajes):
-    messages = [
-        {"role": "system", "content": "Eres un novelista experto que escribe capítulos detallados y envolventes."},
-        {"role": "user", "content": f"""Escribe el capítulo {numero} de la novela '{titulo}'.
-        Información del capítulo: {json.dumps(trama['capitulos'][str(numero)], ensure_ascii=False)}
-        Personajes: {json.dumps(personajes, ensure_ascii=False)}
+        capitulos = []
+        for i in range(1, 25):
+            with st.spinner(f"Generando capítulo {i}..."):
+                capitulo = generar_capitulo(trama_y_personajes, i)
+                capitulos.append({"numero": i, "contenido": capitulo})
+                st.write(f"### Capítulo {i}")
+                st.write(capitulo)
 
-        Requisitos:
-        - Aproximadamente 2000 palabras
-        - Usar raya (—) para diálogos
-        - Desarrollo profundo de personajes
-        - Descripciones detalladas
-        - Diálogos elaborados
-        - Reflexiones internas
-        - Ritmo narrativo controlado"""}
-    ]
-    return generar_contenido(messages)
-
-def crear_documento_texto(titulo, capitulos):
-    filename = f"{titulo.lower().replace(' ', '_')}.txt"
-    with open(filename, 'w', encoding='utf-8') as f:
-        f.write(f"{titulo}\n\n")
-        for num, contenido in capitulos.items():
-            f.write(f"\nCapítulo {num}\n")
-            f.write(f"{contenido}\n")
-            f.write("\n" + "="*50 + "\n")
-    return filename
-
-# Inicialización del estado de la sesión
-if 'estado' not in st.session_state:
-    st.session_state.estado = 'inicio'
-    st.session_state.capitulos = {}
-    st.session_state.personajes = None
-    st.session_state.trama = None
-    st.session_state.genero = ""
-    st.session_state.titulo = ""
-
-# Título principal
-st.title("Generador de Novelas con IA")
-
-# Sidebar para mostrar progreso
-with st.sidebar:
-    st.write("### Progreso de la Novela")
-    if st.session_state.personajes:
-        st.success("✅ Personajes generados")
-    if st.session_state.trama:
-        st.success("✅ Trama generada")
-    if st.session_state.capitulos:
-        progress = len(st.session_state.capitulos) / 10
-        st.progress(progress)
-        st.write(f"Capítulos completados: {len(st.session_state.capitulos)}/10")
-
-# Página principal
-if st.session_state.estado == 'inicio':
-    st.write("### Bienvenido al Generador de Novelas")
-    st.write("Por favor, introduce los detalles iniciales de tu novela.")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.genero = st.text_input("Género de la novela:",
-                                               help="Por ejemplo: Fantasía, Romance, Ciencia Ficción, etc.")
-    with col2:
-        st.session_state.titulo = st.text_input("Título de la novela:")
-
-    if st.button("Comenzar Novela", disabled=not (st.session_state.genero and st.session_state.titulo)):
-        with st.spinner("Generando personajes y trama..."):
-            st.session_state.personajes = generar_personajes(st.session_state.genero)
-            if st.session_state.personajes:
-                st.session_state.trama = generar_trama(
-                    st.session_state.genero,
-                    st.session_state.titulo,
-                    st.session_state.personajes
-                )
-                if st.session_state.trama:
-                    st.session_state.estado = 'escribiendo'
-                    st.rerun()
-
-elif st.session_state.estado == 'escribiendo':
-    # Tabs para organizar la información
-    tab1, tab2, tab3 = st.tabs(["📝 Escritura", "👥 Personajes", "📋 Trama"])
-
-    with tab1:
-        capitulo_actual = len(st.session_state.capitulos) + 1
-
-        if capitulo_actual <= 10:
-            st.write(f"### Escribiendo Capítulo {capitulo_actual}")
-            if st.button("Generar Capítulo"):
-                with st.spinner(f"Escribiendo capítulo {capitulo_actual}..."):
-                    contenido = escribir_capitulo(
-                        capitulo_actual,
-                        st.session_state.trama['titulo'],
-                        st.session_state.trama,
-                        st.session_state.personajes
-                    )
-                    if contenido:
-                        st.session_state.capitulos[str(capitulo_actual)] = contenido
-                        st.rerun()
-
-        # Mostrar capítulos escritos
-        st.write("### Capítulos Completados")
-        for num, contenido in st.session_state.capitulos.items():
-            with st.expander(f"Capítulo {num}"):
-                st.write(contenido)
-
-        # Opción para descargar cuando la novela está completa
-        if len(st.session_state.capitulos) == 10:
-            st.write("### ¡Novela Completa! 🎉")
-            if st.button("Descargar Novela"):
-                filename = crear_documento_texto(
-                    st.session_state.trama['titulo'],
-                    st.session_state.capitulos
-                )
-                with open(filename, "rb") as file:
-                    st.download_button(
-                        label="📥 Descargar Novela",
-                        data=file,
-                        file_name=filename,
-                        mime="text/plain"
-                    )
-
-    with tab2:
-        st.write("### Personajes de la Novela")
-        st.json(st.session_state.personajes)
-
-    with tab3:
-        st.write("### Trama General")
-        st.json(st.session_state.trama)
-
-# Botón para reiniciar en cualquier momento
-if st.sidebar.button("🔄 Reiniciar Novela"):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
-
-# Guardar progreso automáticamente
-if st.session_state.personajes or st.session_state.trama or st.session_state.capitulos:
-    try:
-        progress_data = {
-            'personajes': st.session_state.personajes,
-            'trama': st.session_state.trama,
-            'capitulos': st.session_state.capitulos,
-            'genero': st.session_state.genero,
-            'titulo': st.session_state.titulo
-        }
-        with open('novel_progress.json', 'w', encoding='utf-8') as f:
-            json.dump(progress_data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        st.sidebar.warning("No se pudo guardar el progreso")
+        # Guardar la novela en un archivo .docx
+        guardar_novela(titulo, capitulos)
+        st.success("¡Novela generada con éxito!")
+        st.markdown(f"### [Descargar novela completa en .docx]({titulo}.docx)")
+    else:
+        st.error("Por favor, introduce el género y el título de la novela.")

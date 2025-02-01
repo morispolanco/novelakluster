@@ -1,9 +1,6 @@
 import streamlit as st
-import time
 import json
-import docx
-from docx.shared import Inches
-import os
+import time
 from openai import OpenAI
 
 # Configuración de la página
@@ -12,13 +9,15 @@ st.set_page_config(page_title="Generador de Novelas", layout="wide")
 # Configuración de Kluster.ai
 client = OpenAI(
     base_url="https://api.kluster.ai/v1",
-    api_key=st.secrets["kluster_api_key"]
+    api_key="tu_kluster_api_key"  # Reemplaza con tu API key real
 )
 
 def generar_personajes(genero):
     try:
         response = client.chat.completions.create(
             model="klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
+            max_completion_tokens=5000,
+            temperature=0.7,
             messages=[
                 {"role": "system", "content": "Eres un escritor experto en crear personajes complejos y memorables."},
                 {"role": "user", "content": f"""Crea 5 personajes principales para una novela de {genero}.
@@ -46,6 +45,8 @@ def generar_trama(genero, titulo, personajes):
     try:
         response = client.chat.completions.create(
             model="klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
+            max_completion_tokens=5000,
+            temperature=0.7,
             messages=[
                 {"role": "system", "content": "Eres un escritor experto en crear tramas complejas y cautivadoras."},
                 {"role": "user", "content": f"""Crea una trama completa para una novela de {genero} titulada '{titulo}'.
@@ -55,7 +56,7 @@ def generar_trama(genero, titulo, personajes):
                 - título
                 - tema_principal
                 - sinopsis
-                - capitulos: (diccionario con 24 capítulos numerados)
+                - capitulos: (diccionario con 10 capítulos numerados)
 
                 Cada capítulo debe tener:
                 - título
@@ -79,6 +80,8 @@ def escribir_capitulo(numero, titulo, trama, personajes):
     try:
         response = client.chat.completions.create(
             model="klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
+            max_completion_tokens=5000,
+            temperature=0.7,
             messages=[
                 {"role": "system", "content": "Eres un novelista experto que escribe capítulos detallados y envolventes."},
                 {"role": "user", "content": f"""Escribe el capítulo {numero} de la novela '{titulo}'.
@@ -106,21 +109,15 @@ def escribir_capitulo(numero, titulo, trama, personajes):
         st.error(f"Error al escribir capítulo: {str(e)}")
         return None
 
-def crear_documento_word(titulo, capitulos):
-    doc = docx.Document()
-    doc.add_heading(titulo, 0)
-
-    for num, contenido in capitulos.items():
-        doc.add_heading(f'Capítulo {num}', 1)
-        doc.add_paragraph(contenido)
-        doc.add_page_break()
-
-    filename = f"{titulo.lower().replace(' ', '_')}.docx"
-    doc.save(filename)
+def crear_documento_texto(titulo, capitulos):
+    filename = f"{titulo.lower().replace(' ', '_')}.txt"
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(f"{titulo}\n\n")
+        for num, contenido in capitulos.items():
+            f.write(f"\nCapítulo {num}\n")
+            f.write(f"{contenido}\n")
+            f.write("\n" + "="*50 + "\n")
     return filename
-
-# Interfaz de Streamlit
-st.title("Generador de Novelas")
 
 # Inicialización del estado de la sesión
 if 'estado' not in st.session_state:
@@ -131,6 +128,9 @@ if 'estado' not in st.session_state:
     st.session_state.genero = ""
     st.session_state.titulo = ""
 
+# Título principal
+st.title("Generador de Novelas con IA")
+
 # Sidebar para mostrar progreso
 with st.sidebar:
     st.write("### Progreso de la Novela")
@@ -139,9 +139,9 @@ with st.sidebar:
     if st.session_state.trama:
         st.success("✅ Trama generada")
     if st.session_state.capitulos:
-        progress = len(st.session_state.capitulos) / 24
+        progress = len(st.session_state.capitulos) / 10
         st.progress(progress)
-        st.write(f"Capítulos completados: {len(st.session_state.capitulos)}/24")
+        st.write(f"Capítulos completados: {len(st.session_state.capitulos)}/10")
 
 # Página principal
 if st.session_state.estado == 'inicio':
@@ -175,7 +175,7 @@ elif st.session_state.estado == 'escribiendo':
     with tab1:
         capitulo_actual = len(st.session_state.capitulos) + 1
 
-        if capitulo_actual <= 24:
+        if capitulo_actual <= 10:
             st.write(f"### Escribiendo Capítulo {capitulo_actual}")
             if st.button("Generar Capítulo"):
                 with st.spinner(f"Escribiendo capítulo {capitulo_actual}..."):
@@ -196,10 +196,10 @@ elif st.session_state.estado == 'escribiendo':
                 st.write(contenido)
 
         # Opción para descargar cuando la novela está completa
-        if len(st.session_state.capitulos) == 24:
+        if len(st.session_state.capitulos) == 10:
             st.write("### ¡Novela Completa! 🎉")
-            if st.button("Descargar Novela en Word"):
-                filename = crear_documento_word(
+            if st.button("Descargar Novela"):
+                filename = crear_documento_texto(
                     st.session_state.trama['titulo'],
                     st.session_state.capitulos
                 )
@@ -208,7 +208,7 @@ elif st.session_state.estado == 'escribiendo':
                         label="📥 Descargar Novela",
                         data=file,
                         file_name=filename,
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        mime="text/plain"
                     )
 
     with tab2:
@@ -224,3 +224,18 @@ if st.sidebar.button("🔄 Reiniciar Novela"):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
+
+# Guardar progreso automáticamente
+if st.session_state.personajes or st.session_state.trama or st.session_state.capitulos:
+    try:
+        progress_data = {
+            'personajes': st.session_state.personajes,
+            'trama': st.session_state.trama,
+            'capitulos': st.session_state.capitulos,
+            'genero': st.session_state.genero,
+            'titulo': st.session_state.titulo
+        }
+        with open('novel_progress.json', 'w', encoding='utf-8') as f:
+            json.dump(progress_data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        st.sidebar.warning("No se pudo guardar el progreso")

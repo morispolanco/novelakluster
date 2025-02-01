@@ -1,6 +1,5 @@
 import streamlit as st
 from openai import OpenAI
-import os
 
 # Configura la API key desde los secrets de Streamlit
 api_key = st.secrets["my_klusterai_api_key"]

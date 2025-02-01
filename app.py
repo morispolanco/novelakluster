@@ -3,15 +3,18 @@ from openai import OpenAI
 from docx import Document
 import os
 
-# Configura la API key de OpenAI
-api_key = st.secrets["openai_api_key"]
-client = OpenAI(api_key=api_key)
+# Configura la API key de Kluster AI
+api_key = st.secrets["kluster_api_key"]
+client = OpenAI(
+    api_key=api_key,
+    base_url="https://api.kluster.ai/v1"
+)
 
 # Función para generar la trama y los personajes
 def generar_trama_y_personajes(genero, titulo):
     prompt = f"Genera una trama y describe los personajes principales para una novela de género {genero} titulada '{titulo}'. Incluye una tabla de contenidos con 24 capítulos."
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
         messages=[
             {"role": "system", "content": "Eres un escritor experto en novelas."},
             {"role": "user", "content": prompt}
@@ -23,7 +26,7 @@ def generar_trama_y_personajes(genero, titulo):
 def generar_capitulo(trama, capitulo_numero):
     prompt = f"Escribe el capítulo {capitulo_numero} de la novela. La trama general es: {trama}. El capítulo debe tener alrededor de 2000 palabras y debe incluir desarrollo de personajes, descripciones detalladas, subtramas, diálogos extensos, reflexiones internas, eventos detallados, flashbacks y expansión del mundo."
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
         messages=[
             {"role": "system", "content": "Eres un escritor experto en novelas."},
             {"role": "user", "content": prompt}

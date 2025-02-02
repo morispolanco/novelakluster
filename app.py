@@ -4,9 +4,9 @@ import time
 from docx import Document
 
 # Funciones auxiliares
-def generar_contenido(prompt, model="deepseek-ai/DeepSeek-R1"):
-    api_key = st.secrets["TOGETHER_API_KEY"]
-    url = "https://api.together.xyz/v1/chat/completions"
+def generar_contenido(prompt, model="sophosympatheia/rogue-rose-103b-v0.2:free"):
+    api_key = st.secrets["OPENROUTER_API_KEY"]
+    url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -14,12 +14,9 @@ def generar_contenido(prompt, model="deepseek-ai/DeepSeek-R1"):
     data = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
-        "top_p": 0.7,
-        "top_k": 50,
-        "repetition_penalty": 1,
-        "max_tokens": 6000,
-        "stream": False
+        "temperature": 1,
+        "top_p": 1,
+        "max_completion_tokens": 5000
     }
     response = requests.post(url, headers=headers, json=data)
     if response.status_code == 200:

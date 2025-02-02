@@ -44,7 +44,13 @@ if st.button("Generar novela automáticamente"):
 
     # Generar cada capítulo automáticamente
     for capitulo_num in range(1, 25):
-        descripcion_capitulo = f"Escribe el capítulo {capitulo_num} basado en la siguiente descripción de la trama: {trama}"
+        descripcion_capitulo = (
+            f"Escribe el capítulo {capitulo_num} basado en la descripción de la trama. El capítulo debe incluir: "
+            "desarrollo de personajes con pensamientos, emociones y trasfondos; descripciones detalladas de escenarios y situaciones; "
+            "tramas secundarias que complementen la historia principal; diálogos extensos; reflexiones internas de los personajes; "
+            "eventos detallados; flashbacks o recuerdos; expansión del mundo (si aplica); y un ritmo controlado. "
+            f"Trama: {trama}"
+        )
         capitulo = generar_contenido(descripcion_capitulo)
         st.session_state[f"capitulo_{capitulo_num}"] = capitulo
         st.write(f"Capítulo {capitulo_num} generado.")

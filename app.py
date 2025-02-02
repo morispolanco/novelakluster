@@ -42,7 +42,8 @@ if st.button("Generar novela automáticamente"):
     trama = generar_contenido(prompt_trama)
     st.session_state["trama"] = trama
 
-    # Generar cada capítulo automáticamente
+    # Generar cada capítulo automáticamente con barra de progreso
+    progreso = st.progress(0)
     for capitulo_num in range(1, 25):
         descripcion_capitulo = (
             f"Escribe el capítulo {capitulo_num} basado en la descripción de la trama. El capítulo debe incluir: "
@@ -54,6 +55,7 @@ if st.button("Generar novela automáticamente"):
         capitulo = generar_contenido(descripcion_capitulo)
         st.session_state[f"capitulo_{capitulo_num}"] = capitulo
         st.write(f"Capítulo {capitulo_num} generado.")
+        progreso.progress(capitulo_num / 24)
 
 # Descargar novela completa
 documento = Document()

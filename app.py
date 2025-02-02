@@ -18,7 +18,7 @@ def generar_contenido(prompt, model="deepseek-ai/DeepSeek-R1"):
         "top_p": 0.7,
         "top_k": 50,
         "repetition_penalty": 1,
-        "max_tokens": 2000,
+        "max_tokens": 6000,
         "stream": False
     }
     response = requests.post(url, headers=headers, json=data)
@@ -37,31 +37,21 @@ titulo = st.text_input("Título de la novela")
 genero = st.selectbox("Selecciona el género", ["Fantasía", "Ciencia ficción", "Romance", "Misterio", "Thriller", "Aventura"])
 
 # Botón para comenzar
-if st.button("Generar trama y tabla de contenidos"):
+if st.button("Generar novela automáticamente"):
     prompt_trama = f"Genera una trama completa para una novela de género {genero} con el título '{titulo}'. Divide la trama en 24 capítulos y proporciona una breve descripción para cada uno."
     trama = generar_contenido(prompt_trama)
     st.session_state["trama"] = trama
-    st.write(trama)
 
-# Generar capítulos
-if "trama" in st.session_state:
-    st.subheader("Tabla de contenidos")
-    st.write(st.session_state["trama"])
-
-    capitulo_actual = st.number_input("Selecciona el capítulo a escribir", min_value=1, max_value=24, step=1)
-    if st.button("Escribir capítulo"):
-        descripcion_capitulo = f"Escribe el capítulo {capitulo_actual} basado en la siguiente descripción de la trama: {st.session_state['trama']}"
+    # Generar cada capítulo automáticamente
+    for capitulo_num in range(1, 25):
+        descripcion_capitulo = f"Escribe el capítulo {capitulo_num} basado en la siguiente descripción de la trama: {trama}"
         capitulo = generar_contenido(descripcion_capitulo)
-        st.session_state[f"capitulo_{capitulo_actual}"] = capitulo
-        st.write(capitulo)
+        st.session_state[f"capitulo_{capitulo_num}"] = capitulo
+        st.write(f"Capítulo {capitulo_num} generado.")
 
 # Descargar novela completa
 documento = Document()
 documento.add_heading(titulo, level=1)
-
-tabla_contenidos = st.session_state.get("trama", "")
-documento.add_heading("Tabla de contenidos", level=2)
-documento.add_paragraph(tabla_contenidos)
 
 for i in range(1, 25):
     if f"capitulo_{i}" in st.session_state:

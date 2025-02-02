@@ -3,49 +3,64 @@ import requests
 from docx import Document
 import os
 
-# Configura la API key de Kluster AI
-api_key = st.secrets["kluster_api_key"]
-headers = {
-    "Authorization": f"Bearer {api_key}",
-    "Content-Type": "application/json"
-}
+# Configura la API key de Google Gemini
+api_key = st.secrets["google_api_key"]
+url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}"
 
 # Función para generar la trama y los personajes
 def generar_trama_y_personajes(genero, titulo):
-    url = "https://api.kluster.ai/v1/chat/completions"
+    prompt = f"Genera una trama y describe los personajes principales para una novela de género {genero} titulada '{titulo}'. Incluye una tabla de contenidos con 24 capítulos."
     data = {
-        "model": "klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
-        "max_completion_tokens": 2000,
-        "temperature": 0.6,
-        "top_p": 1,
-        "messages": [
-            {"role": "system", "content": "Eres un escritor experto en novelas."},
-            {"role": "user", "content": f"Genera una trama y describe los personajes principales para una novela de género {genero} titulada '{titulo}'. Incluye una tabla de contenidos con 24 capítulos."}
-        ]
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": prompt
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 1,
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 8192,
+            "responseMimeType": "text/plain"
+        }
     }
-    response = requests.post(url, headers=headers, json=data)
+    response = requests.post(url, json=data)
     if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"]
+        return response.json()["candidates"][0]["content"]["parts"][0]["text"]
     else:
         st.error(f"Error al generar la trama: {response.status_code} - {response.text}")
         return None
 
 # Función para generar un capítulo
 def generar_capitulo(trama, capitulo_numero):
-    url = "https://api.kluster.ai/v1/chat/completions"
+    prompt = f"Escribe el capítulo {capitulo_numero} de la novela. La trama general es: {trama}. El capítulo debe tener alrededor de 2000 palabras y debe incluir desarrollo de personajes, descripciones detalladas, subtramas, diálogos extensos, reflexiones internas, eventos detallados, flashbacks y expansión del mundo."
     data = {
-        "model": "klusterai/Meta-Llama-3.1-405B-Instruct-Turbo",
-        "max_completion_tokens": 2000,
-        "temperature": 0.6,
-        "top_p": 1,
-        "messages": [
-            {"role": "system", "content": "Eres un escritor experto en novelas."},
-            {"role": "user", "content": f"Escribe el capítulo {capitulo_numero} de la novela. La trama general es: {trama}. El capítulo debe tener alrededor de 2000 palabras y debe incluir desarrollo de personajes, descripciones detalladas, subtramas, diálogos extensos, reflexiones internas, eventos detallados, flashbacks y expansión del mundo."}
-        ]
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": prompt
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 1,
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 8192,
+            "responseMimeType": "text/plain"
+        }
     }
-    response = requests.post(url, headers=headers, json=data)
+    response = requests.post(url, json=data)
     if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"]
+        return response.json()["candidates"][0]["content"]["parts"][0]["text"]
     else:
         st.error(f"Error al generar el capítulo {capitulo_numero}: {response.status_code} - {response.text}")
         return None

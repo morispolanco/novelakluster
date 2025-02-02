@@ -3,35 +3,33 @@ import requests
 from docx import Document
 import os
 
-# Configura la API key de Google Gemini
-api_key = st.secrets["google_api_key"]
-url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}"
+# Configura la API key de Together AI
+api_key = st.secrets["together_api_key"]
+url = "https://api.together.xyz/v1/chat/completions"
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+}
 
 # Función para generar la trama y los personajes
 def generar_trama_y_personajes(genero, titulo):
     prompt = f"Genera una trama y describe los personajes principales para una novela de género {genero} titulada '{titulo}'. Incluye una tabla de contenidos con 24 capítulos."
     data = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "text": prompt
-                    }
-                ]
-            }
+        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        "messages": [
+            {"role": "system", "content": "Eres un escritor experto en novelas."},
+            {"role": "user", "content": prompt}
         ],
-        "generationConfig": {
-            "temperature": 1,
-            "topK": 40,
-            "topP": 0.95,
-            "maxOutputTokens": 8192,
-            "responseMimeType": "text/plain"
-        }
+        "temperature": 0.7,
+        "top_p": 0.7,
+        "top_k": 50,
+        "repetition_penalty": 1,
+        "stop": ["<|eot_id|>", "<|eom_id|>"],
+        "stream": False  # Desactivamos el streaming para obtener la respuesta completa
     }
-    response = requests.post(url, json=data)
+    response = requests.post(url, headers=headers, json=data)
     if response.status_code == 200:
-        return response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return response.json()["choices"][0]["message"]["content"]
     else:
         st.error(f"Error al generar la trama: {response.status_code} - {response.text}")
         return None
@@ -40,27 +38,21 @@ def generar_trama_y_personajes(genero, titulo):
 def generar_capitulo(trama, capitulo_numero):
     prompt = f"Escribe el capítulo {capitulo_numero} de la novela. La trama general es: {trama}. El capítulo debe tener alrededor de 2000 palabras y debe incluir desarrollo de personajes, descripciones detalladas, subtramas, diálogos extensos, reflexiones internas, eventos detallados, flashbacks y expansión del mundo."
     data = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "text": prompt
-                    }
-                ]
-            }
+        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        "messages": [
+            {"role": "system", "content": "Eres un escritor experto en novelas."},
+            {"role": "user", "content": prompt}
         ],
-        "generationConfig": {
-            "temperature": 1,
-            "topK": 40,
-            "topP": 0.95,
-            "maxOutputTokens": 8192,
-            "responseMimeType": "text/plain"
-        }
+        "temperature": 0.7,
+        "top_p": 0.7,
+        "top_k": 50,
+        "repetition_penalty": 1,
+        "stop": ["<|eot_id|>", "<|eom_id|>"],
+        "stream": False  # Desactivamos el streaming para obtener la respuesta completa
     }
-    response = requests.post(url, json=data)
+    response = requests.post(url, headers=headers, json=data)
     if response.status_code == 200:
-        return response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return response.json()["choices"][0]["message"]["content"]
     else:
         st.error(f"Error al generar el capítulo {capitulo_numero}: {response.status_code} - {response.text}")
         return None

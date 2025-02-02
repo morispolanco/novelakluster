@@ -45,15 +45,18 @@ if st.button("Generar novela automáticamente"):
     # Generar cada capítulo automáticamente con barra de progreso
     progreso = st.progress(0)
     for capitulo_num in range(1, 25):
-        descripcion_capitulo = (
-            f"Escribe el capítulo {capitulo_num} basado en la descripción de la trama. El capítulo debe incluir: "
-            "desarrollo de personajes con pensamientos, emociones y trasfondos; descripciones detalladas de escenarios y situaciones; "
-            "tramas secundarias que complementen la historia principal; diálogos extensos; reflexiones internas de los personajes; "
-            "eventos detallados; flashbacks o recuerdos; expansión del mundo (si aplica); y un ritmo controlado. "
-            f"Trama: {trama}"
-        )
-        capitulo = generar_contenido(descripcion_capitulo)
-        st.session_state[f"capitulo_{capitulo_num}"] = capitulo
+        capitulo_completo = ""
+        for escena_num in range(1, 4):
+            descripcion_escena = (
+                f"Escribe la escena {escena_num} del capítulo {capitulo_num} basado en la descripción de la trama. La escena debe incluir: "
+                "desarrollo de personajes con pensamientos, emociones y trasfondos; descripciones detalladas de escenarios y situaciones; "
+                "tramas secundarias que complementen la historia principal; diálogos extensos; reflexiones internas de los personajes; "
+                "eventos detallados; flashbacks o recuerdos; expansión del mundo (si aplica); y un ritmo controlado. "
+                f"Trama: {trama}"
+            )
+            escena = generar_contenido(descripcion_escena)
+            capitulo_completo += f"\nEscena {escena_num}\n" + escena + "\n"
+        st.session_state[f"capitulo_{capitulo_num}"] = capitulo_completo
         st.write(f"Capítulo {capitulo_num} generado.")
         progreso.progress(capitulo_num / 24)
 

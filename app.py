@@ -1,98 +1,75 @@
 import streamlit as st
 import requests
+import time
 from docx import Document
-import os
 
-# Configura la API key de Together AI
-api_key = st.secrets["together_api_key"]
-url = "https://api.together.xyz/v1/chat/completions"
-headers = {
-    "Authorization": f"Bearer {api_key}",
-    "Content-Type": "application/json"
-}
-
-# Función para generar la trama y los personajes
-def generar_trama_y_personajes(genero, titulo):
-    prompt = f"Genera una trama y describe los personajes principales para una novela de género {genero} titulada '{titulo}'. Incluye una tabla de contenidos con 24 capítulos."
+# Funciones auxiliares
+def generar_contenido(prompt, model="deepseek-ai/DeepSeek-R1"):
+    api_key = st.secrets["TOGETHER_API_KEY"]
+    url = "https://api.together.xyz/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
     data = {
-        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-        "messages": [
-            {"role": "system", "content": "Eres un escritor experto en novelas."},
-            {"role": "user", "content": prompt}
-        ],
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
         "repetition_penalty": 1,
-        "stop": ["<|eot_id|>", "<|eom_id|>"],
-        "stream": False  # Desactivamos el streaming para obtener la respuesta completa
+        "max_tokens": 2000,
+        "stream": False
     }
     response = requests.post(url, headers=headers, json=data)
     if response.status_code == 200:
         return response.json()["choices"][0]["message"]["content"]
     else:
-        st.error(f"Error al generar la trama: {response.status_code} - {response.text}")
-        return None
+        st.error("Error al generar contenido. Intenta de nuevo.")
+        return ""
 
-# Función para generar un capítulo
-def generar_capitulo(trama, capitulo_numero):
-    prompt = f"Escribe el capítulo {capitulo_numero} de la novela. La trama general es: {trama}. El capítulo debe tener alrededor de 2000 palabras y debe incluir desarrollo de personajes, descripciones detalladas, subtramas, diálogos extensos, reflexiones internas, eventos detallados, flashbacks y expansión del mundo."
-    data = {
-        "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-        "messages": [
-            {"role": "system", "content": "Eres un escritor experto en novelas."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.7,
-        "top_p": 0.7,
-        "top_k": 50,
-        "repetition_penalty": 1,
-        "stop": ["<|eot_id|>", "<|eom_id|>"],
-        "stream": False  # Desactivamos el streaming para obtener la respuesta completa
-    }
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"]
-    else:
-        st.error(f"Error al generar el capítulo {capitulo_numero}: {response.status_code} - {response.text}")
-        return None
+# Configuración de la aplicación
+st.title("Generador de Novelas por Capítulos")
+st.write("Escribe tu novela con desarrollo de personajes, tramas y descripciones detalladas.")
 
-# Función para guardar la novela en un archivo .docx
-def guardar_novela(titulo, capitulos):
-    doc = Document()
-    doc.add_heading(titulo, 0)
-    for capitulo in capitulos:
-        doc.add_heading(f"Capítulo {capitulo['numero']}", level=1)
-        doc.add_paragraph(capitulo['contenido'])
-    doc.save(f"{titulo}.docx")
+# Entrada del usuario
+titulo = st.text_input("Título de la novela")
+genero = st.selectbox("Selecciona el género", ["Fantasía", "Ciencia ficción", "Romance", "Misterio", "Thriller", "Aventura"])
 
-# Interfaz de Streamlit
-st.title("Generador de Novelas")
+# Botón para comenzar
+if st.button("Generar trama y tabla de contenidos"):
+    prompt_trama = f"Genera una trama completa para una novela de género {genero} con el título '{titulo}'. Divide la trama en 24 capítulos y proporciona una breve descripción para cada uno."
+    trama = generar_contenido(prompt_trama)
+    st.session_state["trama"] = trama
+    st.write(trama)
 
-# Entradas del usuario
-genero = st.text_input("Especifica el género de la novela:")
-titulo = st.text_input("Especifica el título de la novela:")
+# Generar capítulos
+if "trama" in st.session_state:
+    st.subheader("Tabla de contenidos")
+    st.write(st.session_state["trama"])
 
-if st.button("Generar Novela"):
-    if genero and titulo:
-        with st.spinner("Generando trama y personajes..."):
-            trama_y_personajes = generar_trama_y_personajes(genero, titulo)
-            if trama_y_personajes:
-                st.write("### Trama y Personajes")
-                st.write(trama_y_personajes)
+    capitulo_actual = st.number_input("Selecciona el capítulo a escribir", min_value=1, max_value=24, step=1)
+    if st.button("Escribir capítulo"):
+        descripcion_capitulo = f"Escribe el capítulo {capitulo_actual} basado en la siguiente descripción de la trama: {st.session_state['trama']}"
+        capitulo = generar_contenido(descripcion_capitulo)
+        st.session_state[f"capitulo_{capitulo_actual}"] = capitulo
+        st.write(capitulo)
 
-                capitulos = []
-                for i in range(1, 25):
-                    with st.spinner(f"Generando capítulo {i}..."):
-                        capitulo = generar_capitulo(trama_y_personajes, i)
-                        if capitulo:
-                            capitulos.append({"numero": i, "contenido": capitulo})
-                            st.write(f"### Capítulo {i}")
-                            st.write(capitulo)
+# Descargar novela completa
+documento = Document()
+documento.add_heading(titulo, level=1)
 
-                # Guardar la novela en un archivo .docx
-                guardar_novela(titulo, capitulos)
-                st.success("¡Novela generada con éxito!")
-                st.markdown(f"### [Descargar novela completa en .docx]({titulo}.docx)")
-    else:
-        st.error("Por favor, introduce el género y el título de la novela.")
+tabla_contenidos = st.session_state.get("trama", "")
+documento.add_heading("Tabla de contenidos", level=2)
+documento.add_paragraph(tabla_contenidos)
+
+for i in range(1, 25):
+    if f"capitulo_{i}" in st.session_state:
+        documento.add_heading(f"Capítulo {i}", level=2)
+        documento.add_paragraph(st.session_state[f"capitulo_{i}"])
+
+if st.button("Descargar novela completa"):
+    nombre_archivo = f"{titulo.replace(' ', '_')}.docx"
+    documento.save(nombre_archivo)
+    with open(nombre_archivo, "rb") as file:
+        st.download_button("Descargar novela", file, file_name=nombre_archivo)
